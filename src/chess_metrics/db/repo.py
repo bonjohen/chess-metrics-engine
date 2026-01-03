@@ -65,8 +65,8 @@ class Repo:
 
     def insert_position(self, game_id: int, ply: int, side_to_move: str, fen: str,
                         last_uci: Optional[str], last_san: Optional[str],
-                        pv_w: int, mv_w: int, ov_w: int, dv_w: int,
-                        pv_b: int, mv_b: int, ov_b: int, dv_b: int) -> None:
+                        pv_w: float, mv_w: float, ov_w: float, dv_w: float,
+                        pv_b: float, mv_b: float, ov_b: float, dv_b: float) -> None:
         self.conn.execute(
             """INSERT INTO positions(
                  game_id, ply, side_to_move, fen, last_move_uci, last_move_san,
@@ -79,15 +79,16 @@ class Repo:
     def insert_move(self, game_id: int, ply: int, uci: str, san: str,
                     from_sq: str, to_sq: str,
                     is_capture: int, is_ep: int, is_castle: int, is_promotion: int,
-                    promotion_piece: Optional[str]) -> None:
+                    promotion_piece: Optional[str], variance_factor: Optional[float] = None) -> None:
         self.conn.execute(
             """INSERT INTO moves(
                  game_id, ply, uci, san, from_sq, to_sq,
                  is_capture, is_ep, is_castle, is_promotion, promotion_piece,
-                 created_utc
-               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                 variance_factor, created_utc
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (game_id, ply, uci, san, from_sq, to_sq,
-             is_capture, is_ep, is_castle, is_promotion, promotion_piece, UTCNOW())
+             is_capture, is_ep, is_castle, is_promotion, promotion_piece,
+             variance_factor, UTCNOW())
         )
 
     def commit(self) -> None:

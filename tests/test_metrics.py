@@ -10,10 +10,13 @@ class TestMetrics(unittest.TestCase):
         self.assertEqual((m.pv_w, m.pv_b), (15, 6))
         self.assertEqual(m.mv_w, 26)
         self.assertEqual(m.ov_w, 1)
-        self.assertEqual(m.dv_w, 15)
+        # DV now uses sqrt of piece values
+        # Previously: Queen(9) + Rook(5) + Pawn(1) = 15
+        # Now: sqrt(9) + sqrt(5) + sqrt(1) = 3.0 + 2.236... + 1.0 ≈ 6.236
+        self.assertAlmostEqual(m.dv_w, 6.236, places=2)
         self.assertEqual(m.mv_b, 14)
         self.assertEqual(m.ov_b, 2)
-        self.assertEqual(m.dv_b, 0)
+        self.assertEqual(m.dv_b, 0.0)
 
     def test_ep_counts_for_ov_only(self):
         # White pawn e5, black pawn d5 just moved two squares => ep square d6, white can capture ep e5xd6 ep

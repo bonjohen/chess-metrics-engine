@@ -44,15 +44,15 @@ CREATE TABLE IF NOT EXISTS positions (
   last_move_uci   TEXT NULL,
   last_move_san   TEXT NULL,
 
-  pv_w INTEGER NOT NULL,
-  mv_w INTEGER NOT NULL,
-  ov_w INTEGER NOT NULL,
-  dv_w INTEGER NOT NULL,
+  pv_w REAL NOT NULL,
+  mv_w REAL NOT NULL,
+  ov_w REAL NOT NULL,
+  dv_w REAL NOT NULL,
 
-  pv_b INTEGER NOT NULL,
-  mv_b INTEGER NOT NULL,
-  ov_b INTEGER NOT NULL,
-  dv_b INTEGER NOT NULL,
+  pv_b REAL NOT NULL,
+  mv_b REAL NOT NULL,
+  ov_b REAL NOT NULL,
+  dv_b REAL NOT NULL,
 
   created_utc TEXT NOT NULL,
 
@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS moves (
   is_castle       INTEGER NOT NULL CHECK (is_castle IN (0,1)),
   is_promotion    INTEGER NOT NULL CHECK (is_promotion IN (0,1)),
   promotion_piece TEXT NULL,
+  variance_factor REAL NULL,
   created_utc     TEXT NOT NULL,
   FOREIGN KEY (game_id) REFERENCES games(game_id),
   UNIQUE (game_id, ply)

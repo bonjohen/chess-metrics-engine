@@ -42,7 +42,8 @@ class TestDB(unittest.TestCase):
                              1 if mv.is_ep else 0,
                              1 if mv.is_castle else 0,
                              1 if mv.is_promotion else 0,
-                             "Q" if mv.is_promotion else None)
+                             "Q" if mv.is_promotion else None,
+                             1.0)  # variance_factor
 
             repo.insert_position(gid, 1, "B", fen1, mv.uci(), san,
                                  m1.pv_w, m1.mv_w, m1.ov_w, m1.dv_w,

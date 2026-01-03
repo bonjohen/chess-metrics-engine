@@ -16,11 +16,11 @@ class Metrics:
     pv_w: int
     mv_w: int
     ov_w: int
-    dv_w: int
+    dv_w: float
     pv_b: int
     mv_b: int
     ov_b: int
-    dv_b: int
+    dv_b: float
 
 def compute_pv(state: GameState, side: int) -> int:
     s = 0
@@ -57,10 +57,11 @@ def _undo_capture_like(state: GameState, from_sq: int, to_sq: int, moved: int, c
     b[from_sq] = moved
     b[to_sq] = captured
 
-def compute_dv(state: GameState, side: int) -> int:
+def compute_dv(state: GameState, side: int) -> float:
+    import math
     from .types import KING
     b = state.board
-    dv = 0
+    dv = 0.0
 
     friendly_squares = [sq for sq, p in enumerate(b) if p != 0 and piece_color(p) == side]
     for t in friendly_squares:
@@ -86,7 +87,8 @@ def compute_dv(state: GameState, side: int) -> int:
             _undo_capture_like(state, f, t, moved, captured)
 
             if ok:
-                dv += valueX  # multiplicity counts
+                # Use square root of piece value for defense calculation
+                dv += math.sqrt(valueX)  # multiplicity counts
 
     return dv
 
