@@ -1,0 +1,9 @@
+﻿[build-system]
+requires = []
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chess-metrics-engine"
+version = "0.1.0"
+description = "Chess legal engine + custom PV/MV/OV/DV metrics + SQLite store"
+requires-python = ">=3.10"
