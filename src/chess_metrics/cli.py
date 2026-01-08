@@ -15,6 +15,7 @@ from chess_metrics.engine.search import choose_best_move, Profile
 from chess_metrics.engine.san import move_to_san
 from chess_metrics.engine.types import WHITE, BLACK, sq_to_alg, alg_to_sq, Move
 from chess_metrics.db.repo import Repo
+from chess_metrics.pgn import export_game_to_pgn
 
 START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
@@ -709,6 +710,12 @@ def main():
     gg.add_argument("--max-retries", type=int, default=20, help="Max attempts to generate unique game (default: 20)")
     gg.add_argument("--quiet", action="store_true", help="Minimal output")
 
+    ep = sub.add_parser("export-pgn", help="Export game(s) to PGN format")
+    ep.add_argument("--game-id", type=int, help="Game ID to export (omit to export all games)")
+    ep.add_argument("--output", "-o", help="Output file (default: stdout)")
+    ep.add_argument("--no-metrics", action="store_true", help="Exclude metrics comments")
+    ep.add_argument("--range", help="Game ID range (e.g., '1-10')")
+
     args = ap.parse_args()
     repo = Repo.open(args.db)
 
@@ -809,6 +816,72 @@ def main():
             max_retries=args.max_retries,
             quiet=args.quiet
         )
+
+        repo.close()
+        return
+
+    if args.cmd == "export-pgn":
+        # Determine which games to export
+        game_ids = []
+
+        if args.game_id is not None:
+            # Single game
+            game_ids = [args.game_id]
+        elif args.range:
+            # Range of games (e.g., "1-10")
+            try:
+                start_str, end_str = args.range.split('-')
+                start = int(start_str.strip())
+                end = int(end_str.strip())
+                game_ids = repo.get_game_ids_in_range(start, end)
+                if not game_ids:
+                    print(f"No games found in range {start}-{end}")
+                    repo.close()
+                    return
+            except ValueError:
+                print(f"Error: Invalid range format '{args.range}'. Use format: '1-10'")
+                repo.close()
+                return
+        else:
+            # All games
+            game_ids = repo.get_all_game_ids()
+            if not game_ids:
+                print("No games found in database")
+                repo.close()
+                return
+
+        # Export games
+        include_metrics = not args.no_metrics
+        output_lines = []
+
+        for game_id in game_ids:
+            game_data = repo.get_game_for_pgn(game_id)
+            if not game_data:
+                print(f"Warning: Game {game_id} not found, skipping")
+                continue
+
+            pgn = export_game_to_pgn(
+                game_data['game'],
+                game_data['moves'],
+                include_metrics=include_metrics
+            )
+            output_lines.append(pgn)
+
+        # Combine all PGNs
+        full_output = "\n".join(output_lines)
+
+        # Write to file or stdout
+        if args.output:
+            try:
+                with open(args.output, 'w', encoding='utf-8') as f:
+                    f.write(full_output)
+                print(f"Exported {len(game_ids)} game(s) to {args.output}")
+            except IOError as e:
+                print(f"Error writing to file: {e}")
+                repo.close()
+                return
+        else:
+            print(full_output)
 
         repo.close()
         return

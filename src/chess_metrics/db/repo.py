@@ -104,3 +104,75 @@ class Repo:
             (game_id,)
         )
         return list(cur.fetchall())
+
+    def get_game_for_pgn(self, game_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get all game data needed for PGN export.
+
+        Returns:
+            Dictionary with 'game' metadata and 'moves' list, or None if game not found
+        """
+        # Query game metadata with player info
+        game_row = self.conn.execute(
+            """SELECT g.game_id, g.created_utc, g.result, g.termination, g.start_fen,
+                      wp.name as white_name, wp.type as white_type,
+                      bp.name as black_name, bp.type as black_type
+               FROM games g
+               JOIN players wp ON g.white_player_id = wp.player_id
+               JOIN players bp ON g.black_player_id = bp.player_id
+               WHERE g.game_id = ?""",
+            (game_id,)
+        ).fetchone()
+
+        if not game_row:
+            return None
+
+        # Convert Row to dict
+        game_data = dict(game_row)
+
+        # Query moves with position metrics
+        moves_rows = self.conn.execute(
+            """SELECT m.ply, m.san, m.uci,
+                      p.pv_w, p.mv_w, p.ov_w, p.dv_w,
+                      p.pv_b, p.mv_b, p.ov_b, p.dv_b
+               FROM moves m
+               JOIN positions p ON m.game_id = p.game_id AND m.ply = p.ply
+               WHERE m.game_id = ?
+               ORDER BY m.ply ASC""",
+            (game_id,)
+        ).fetchall()
+
+        # Convert moves to list of dicts
+        moves = []
+        for row in moves_rows:
+            move_dict = {
+                'ply': row['ply'],
+                'san': row['san'],
+                'uci': row['uci'],
+                'metrics': {
+                    'pv_w': row['pv_w'],
+                    'mv_w': row['mv_w'],
+                    'ov_w': row['ov_w'],
+                    'dv_w': row['dv_w'],
+                    'pv_b': row['pv_b'],
+                    'mv_b': row['mv_b'],
+                    'ov_b': row['ov_b'],
+                    'dv_b': row['dv_b'],
+                }
+            }
+            moves.append(move_dict)
+
+        return {'game': game_data, 'moves': moves}
+
+    def get_all_game_ids(self) -> List[int]:
+        """Get list of all game IDs in database."""
+        rows = self.conn.execute("SELECT game_id FROM games ORDER BY game_id ASC").fetchall()
+        return [row['game_id'] for row in rows]
+
+    def get_game_ids_in_range(self, start: int, end: int) -> List[int]:
+        """Get list of game IDs in specified range (inclusive)."""
+        rows = self.conn.execute(
+            "SELECT game_id FROM games WHERE game_id >= ? AND game_id <= ? ORDER BY game_id ASC",
+            (start, end)
+        ).fetchall()
+        return [row['game_id'] for row in rows]
