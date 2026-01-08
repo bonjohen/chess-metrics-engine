@@ -47,6 +47,18 @@ This starts an interactive game (Human vs AI by default) that saves all moves to
 - [VARIANCE_FEATURE.md](VARIANCE_FEATURE.md) - Variance system
 - [SUM_COLUMN_FEATURE.md](SUM_COLUMN_FEATURE.md) - Sum column and sorting
 
+### Batch Game Generation (NEW!)
+```powershell
+$env:PYTHONPATH="src"
+# Generate 10 unique games with random AI profiles
+python -m chess_metrics.cli generate-games --count 10 --random-profiles --depth 2
+
+# Generate 100 games quickly (for datasets)
+python -m chess_metrics.cli generate-games --count 100 --depth 1 --max-moves 50 --quiet
+```
+
+See [BATCH_GENERATION.md](BATCH_GENERATION.md) for full documentation.
+
 ### Other Commands
 ```powershell
 $env:PYTHONPATH="src"

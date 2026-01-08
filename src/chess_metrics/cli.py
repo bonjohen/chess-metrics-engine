@@ -1,7 +1,11 @@
 ﻿from __future__ import annotations
 import argparse
 import random
+import time
+import hashlib
 from datetime import datetime, timezone
+from dataclasses import dataclass
+from typing import Optional, List, Set
 
 from chess_metrics.engine.fen import parse_fen, to_fen
 from chess_metrics.engine.movegen import generate_legal_moves
@@ -129,21 +133,21 @@ def display_move_options(state, legal_moves, player_name, player_side, apply_var
 
     # Header with variance and sum columns if applicable
     if apply_variance:
-        print(f"{'#':<4} {'Move':<8} {'SAN':<8} {'dPV':>6} {'dMV':>6} {'dOV':>6} {'dDV':>6} {'Var':>5} {'Sum':>6} | {'PVw':>4} {'MVw':>4} {'OVw':>4} {'DVw':>4} {'PVb':>4} {'MVb':>4} {'OVb':>4} {'DVb':>4}")
+        print(f"{'#':<4} {'Move':<8} {'SAN':<8} {'dPV':>6} {'dMV':>6} {'dOV':>6} {'dDV':>6} {'Var':>5} {'Sum':>6} | {'PVw':>4} {'MVw':>4} {'OVw':>4} {'DVw':>5} {'PVb':>4} {'MVb':>4} {'OVb':>4} {'DVb':>5}")
     else:
-        print(f"{'#':<4} {'Move':<8} {'SAN':<8} {'dPV':>6} {'dMV':>6} {'dOV':>6} {'dDV':>6} {'Sum':>6} | {'PVw':>4} {'MVw':>4} {'OVw':>4} {'DVw':>4} {'PVb':>4} {'MVb':>4} {'OVb':>4} {'DVb':>4}")
+        print(f"{'#':<4} {'Move':<8} {'SAN':<8} {'dPV':>6} {'dMV':>6} {'dOV':>6} {'dDV':>6} {'Sum':>6} | {'PVw':>4} {'MVw':>4} {'OVw':>4} {'DVw':>5} {'PVb':>4} {'MVb':>4} {'OVb':>4} {'DVb':>5}")
     print("-" * 105)
 
     for idx, (move, san, metrics, (dPV, dMV, dOV, dDV), variance) in enumerate(move_analysis, 1):
         delta_sum = dPV + dMV + dOV + dDV
         if apply_variance:
             print(f"{idx:<4} {move.uci():<8} {san:<8} {dPV:>+6.1f} {dMV:>+6.1f} {dOV:>+6.1f} {dDV:>+6.1f} {variance:>5.2f} {delta_sum:>+6.1f} | "
-                  f"{metrics.pv_w:>4.0f} {metrics.mv_w:>4.0f} {metrics.ov_w:>4.0f} {metrics.dv_w:>4.0f} "
-                  f"{metrics.pv_b:>4.0f} {metrics.mv_b:>4.0f} {metrics.ov_b:>4.0f} {metrics.dv_b:>4.0f}")
+                  f"{metrics.pv_w:>4.0f} {metrics.mv_w:>4.0f} {metrics.ov_w:>4.0f} {metrics.dv_w:>5.1f} "
+                  f"{metrics.pv_b:>4.0f} {metrics.mv_b:>4.0f} {metrics.ov_b:>4.0f} {metrics.dv_b:>5.1f}")
         else:
             print(f"{idx:<4} {move.uci():<8} {san:<8} {dPV:>+6.1f} {dMV:>+6.1f} {dOV:>+6.1f} {dDV:>+6.1f} {delta_sum:>+6.1f} | "
-                  f"{metrics.pv_w:>4.0f} {metrics.mv_w:>4.0f} {metrics.ov_w:>4.0f} {metrics.dv_w:>4.0f} "
-                  f"{metrics.pv_b:>4.0f} {metrics.mv_b:>4.0f} {metrics.ov_b:>4.0f} {metrics.dv_b:>4.0f}")
+                  f"{metrics.pv_w:>4.0f} {metrics.mv_w:>4.0f} {metrics.ov_w:>4.0f} {metrics.dv_w:>5.1f} "
+                  f"{metrics.pv_b:>4.0f} {metrics.mv_b:>4.0f} {metrics.ov_b:>4.0f} {metrics.dv_b:>5.1f}")
 
     print("=" * 105)
     print(f"Total: {len(legal_moves)} legal moves")
@@ -179,6 +183,75 @@ def is_game_over(state) -> tuple[bool, str]:
         return True, "1/2-1/2"
 
     return False, ""
+
+@dataclass
+class GameResult:
+    """Result of a completed game."""
+    game_id: int
+    moves_count: int
+    result: str  # "1-0", "0-1", "1/2-1/2"
+    termination: str  # "checkmate", "stalemate", "draw", "max_moves"
+    opening_moves: List[str]  # First N moves in UCI format
+
+@dataclass
+class BatchResult:
+    """Result of batch game generation."""
+    total_games: int
+    total_positions: int
+    total_moves: int
+    duplicates_rejected: int
+    time_elapsed: float
+    profile_distribution: dict
+
+class OpeningTracker:
+    """Tracks opening signatures to detect duplicate games."""
+
+    def __init__(self, uniqueness_depth: int = 6):
+        """
+        Args:
+            uniqueness_depth: Number of moves (plies) to use for uniqueness check
+        """
+        self.uniqueness_depth = uniqueness_depth
+        self.seen_openings: Set[str] = set()
+        self.duplicate_count = 0
+
+    def get_opening_signature(self, moves: List[str]) -> str:
+        """Generate hash signature from first N moves."""
+        opening_moves = moves[:self.uniqueness_depth]
+        signature = "|".join(opening_moves)
+        return hashlib.md5(signature.encode()).hexdigest()
+
+    def is_duplicate(self, moves: List[str]) -> bool:
+        """Check if this opening has been seen before."""
+        if len(moves) < self.uniqueness_depth:
+            # Not enough moves yet, can't determine uniqueness
+            return False
+
+        signature = self.get_opening_signature(moves)
+        return signature in self.seen_openings
+
+    def add_opening(self, moves: List[str]) -> bool:
+        """
+        Add opening to tracker.
+        Returns True if added (unique), False if duplicate.
+        """
+        if len(moves) < self.uniqueness_depth:
+            return True  # Not enough moves to check
+
+        signature = self.get_opening_signature(moves)
+        if signature in self.seen_openings:
+            self.duplicate_count += 1
+            return False
+
+        self.seen_openings.add(signature)
+        return True
+
+    def get_stats(self) -> dict:
+        """Get statistics about tracked openings."""
+        return {
+            "unique_openings": len(self.seen_openings),
+            "duplicates_rejected": self.duplicate_count
+        }
 
 def play_interactive_game(repo: Repo, args):
     """Play an interactive chess game and save to database."""
@@ -342,6 +415,257 @@ def play_interactive_game(repo: Repo, args):
         print(f"Move {ply}: {san} [variance: {variance_factor:.2f}]")
         print()
 
+def play_silent_game(
+    repo: Repo,
+    white_profile: Profile,
+    black_profile: Profile,
+    depth: int = 3,
+    max_moves: int = 200,
+    start_fen: str = START_FEN,
+    white_name: str = "White",
+    black_name: str = "Black"
+) -> GameResult:
+    """
+    Play a complete AI vs AI game silently (no display) and save to database.
+
+    Args:
+        repo: Database repository
+        white_profile: AI profile for white
+        black_profile: AI profile for black
+        depth: Search depth for AI
+        max_moves: Maximum moves before declaring draw
+        start_fen: Starting position
+        white_name: Name for white player
+        black_name: Name for black player
+
+    Returns:
+        GameResult with game statistics
+    """
+    # Create players
+    white_pid = repo.create_player(white_name, "ai")
+    black_pid = repo.create_player(black_name, "ai")
+
+    # Create game
+    game_id = repo.create_game(white_pid, black_pid, start_fen)
+
+    # Initialize game state
+    state = parse_fen(start_fen)
+    ply = 0
+    opening_moves = []
+
+    # Save initial position
+    met = compute_metrics(state)
+    repo.insert_position(
+        game_id, ply, "W" if state.side_to_move == WHITE else "B",
+        start_fen, None, None,
+        met.pv_w, met.mv_w, met.ov_w, met.dv_w,
+        met.pv_b, met.mv_b, met.ov_b, met.dv_b
+    )
+    repo.commit()
+
+    # Game loop
+    while ply < max_moves:
+        # Check if game is over
+        game_over, result = is_game_over(state)
+        if game_over:
+            termination = "checkmate" if "#" in result and result != "1/2-1/2" else "stalemate"
+            repo.conn.execute(
+                "UPDATE games SET result=?, termination=? WHERE game_id=?",
+                (result, termination, game_id)
+            )
+            repo.commit()
+            return GameResult(game_id, ply, result, termination, opening_moves)
+
+        # Get AI move
+        current_profile = white_profile if state.side_to_move == WHITE else black_profile
+        move = choose_best_move(state, current_profile, depth)
+
+        if move is None:
+            # No legal moves (shouldn't happen if is_game_over works correctly)
+            result = "1/2-1/2"
+            repo.conn.execute(
+                "UPDATE games SET result=?, termination=? WHERE game_id=?",
+                (result, "stalemate", game_id)
+            )
+            repo.commit()
+            return GameResult(game_id, ply, result, "stalemate", opening_moves)
+
+        # Get SAN notation
+        san = move_to_san(state, move)
+
+        # Track opening moves
+        opening_moves.append(move.uci())
+
+        # Apply move
+        apply_move(state, move)
+        ply += 1
+
+        # Compute metrics after move
+        met = compute_metrics(state)
+
+        # Generate variance for this move
+        variance_factor = generate_variance()
+
+        # Save move to database
+        from_alg = sq_to_alg(move.from_sq)
+        to_alg = sq_to_alg(move.to_sq)
+        repo.insert_move(
+            game_id, ply, move.uci(), san, from_alg, to_alg,
+            1 if (move.is_capture or move.is_ep) else 0,
+            1 if move.is_ep else 0,
+            1 if move.is_castle else 0,
+            1 if move.is_promotion else 0,
+            "Q" if move.is_promotion else None,
+            variance_factor
+        )
+
+        # Save new position
+        fen = to_fen(state)
+        repo.insert_position(
+            game_id, ply, "W" if state.side_to_move == WHITE else "B",
+            fen, move.uci(), san,
+            met.pv_w, met.mv_w, met.ov_w, met.dv_w,
+            met.pv_b, met.mv_b, met.ov_b, met.dv_b
+        )
+        repo.commit()
+
+    # Max moves reached - draw
+    result = "1/2-1/2"
+    repo.conn.execute(
+        "UPDATE games SET result=?, termination=? WHERE game_id=?",
+        (result, "max_moves", game_id)
+    )
+    repo.commit()
+    return GameResult(game_id, ply, result, "max_moves", opening_moves)
+
+def generate_batch_games(
+    repo: Repo,
+    count: int,
+    white_profile_name: Optional[str] = None,
+    black_profile_name: Optional[str] = None,
+    random_profiles: bool = False,
+    depth: int = 3,
+    max_moves: int = 200,
+    uniqueness_depth: int = 6,
+    max_retries: int = 20,
+    quiet: bool = False
+) -> BatchResult:
+    """
+    Generate multiple unique games in batch mode.
+
+    Args:
+        repo: Database repository
+        count: Number of unique games to generate
+        white_profile_name: Profile name for white (or None for random)
+        black_profile_name: Profile name for black (or None for random)
+        random_profiles: If True, randomly select profiles for each game
+        depth: AI search depth
+        max_moves: Maximum moves per game
+        uniqueness_depth: Number of plies to check for uniqueness
+        max_retries: Maximum attempts to generate unique game
+        quiet: If True, minimal output
+
+    Returns:
+        BatchResult with statistics
+    """
+    start_time = time.time()
+    tracker = OpeningTracker(uniqueness_depth)
+    profile_distribution = {}
+
+    all_profiles = ["default", "offense-first", "defense-first", "board-coverage", "materialist"]
+
+    if not quiet:
+        print(f"Generating {count} unique games...")
+        print(f"Settings: depth={depth}, max_moves={max_moves}, uniqueness_depth={uniqueness_depth}")
+        print()
+
+    games_completed = 0
+    total_moves = 0
+    total_positions = 0
+
+    while games_completed < count:
+        # Select profiles
+        if random_profiles:
+            white_prof_name = random.choice(all_profiles)
+            black_prof_name = random.choice(all_profiles)
+        else:
+            white_prof_name = white_profile_name or "default"
+            black_prof_name = black_profile_name or "default"
+
+        white_profile = get_profile(white_prof_name)
+        black_profile = get_profile(black_prof_name)
+
+        # Track profile usage
+        profile_key = f"{white_prof_name} vs {black_prof_name}"
+        profile_distribution[profile_key] = profile_distribution.get(profile_key, 0) + 1
+
+        # Try to generate unique game
+        retry_count = 0
+        game_is_unique = False
+
+        while retry_count < max_retries and not game_is_unique:
+            # Play game
+            result = play_silent_game(
+                repo, white_profile, black_profile, depth, max_moves,
+                START_FEN, f"W_{white_prof_name}", f"B_{black_prof_name}"
+            )
+
+            # Check uniqueness
+            if tracker.is_duplicate(result.opening_moves):
+                # Duplicate - delete game and retry
+                repo.conn.execute("DELETE FROM positions WHERE game_id=?", (result.game_id,))
+                repo.conn.execute("DELETE FROM moves WHERE game_id=?", (result.game_id,))
+                repo.conn.execute("DELETE FROM games WHERE game_id=?", (result.game_id,))
+                repo.commit()
+                retry_count += 1
+            else:
+                # Unique game!
+                tracker.add_opening(result.opening_moves)
+                game_is_unique = True
+                games_completed += 1
+                total_moves += result.moves_count
+                total_positions += result.moves_count + 1  # +1 for initial position
+
+                if not quiet:
+                    elapsed = time.time() - start_time
+                    avg_moves = total_moves / games_completed if games_completed > 0 else 0
+                    games_per_sec = games_completed / elapsed if elapsed > 0 else 0
+                    eta = (count - games_completed) / games_per_sec if games_per_sec > 0 else 0
+
+                    print(f"[{games_completed}/{count}] Game {result.game_id}: "
+                          f"{result.result} ({result.termination}, {result.moves_count} moves) "
+                          f"| Avg: {avg_moves:.1f} moves | ETA: {eta:.0f}s")
+
+        if not game_is_unique:
+            if not quiet:
+                print(f"Warning: Could not generate unique game after {max_retries} retries. Skipping.")
+
+    elapsed_time = time.time() - start_time
+
+    if not quiet:
+        print()
+        print("=" * 80)
+        print("Batch Generation Complete!")
+        print(f"  Total games: {games_completed}")
+        print(f"  Total positions: {total_positions}")
+        print(f"  Total moves: {total_moves}")
+        print(f"  Duplicates rejected: {tracker.duplicate_count}")
+        print(f"  Time elapsed: {elapsed_time:.1f}s")
+        print(f"  Avg time per game: {elapsed_time/games_completed:.2f}s")
+        print()
+        print("Profile distribution:")
+        for profile_combo, count_val in sorted(profile_distribution.items()):
+            print(f"  {profile_combo}: {count_val} games")
+
+    return BatchResult(
+        total_games=games_completed,
+        total_positions=total_positions,
+        total_moves=total_moves,
+        duplicates_rejected=tracker.duplicate_count,
+        time_elapsed=elapsed_time,
+        profile_distribution=profile_distribution
+    )
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default="chess.sqlite", help="sqlite db path")
@@ -373,6 +697,17 @@ def main():
     pg.add_argument("--ai-depth", type=int, default=3, help="AI search depth")
     pg.add_argument("--ai-profile", default="default", help="AI profile")
     pg.add_argument("--start-fen", default=START_FEN, help="Starting position FEN")
+
+    gg = sub.add_parser("generate-games", help="Generate multiple games in batch mode")
+    gg.add_argument("--count", type=int, required=True, help="Number of unique games to generate")
+    gg.add_argument("--white-profile", default=None, help="AI profile for white (default: random if --random-profiles)")
+    gg.add_argument("--black-profile", default=None, help="AI profile for black (default: random if --random-profiles)")
+    gg.add_argument("--random-profiles", action="store_true", help="Randomly select profiles for each game")
+    gg.add_argument("--depth", type=int, default=3, help="AI search depth (default: 3)")
+    gg.add_argument("--max-moves", type=int, default=200, help="Maximum moves per game before draw (default: 200)")
+    gg.add_argument("--uniqueness-depth", type=int, default=6, help="Number of plies to check for uniqueness (default: 6)")
+    gg.add_argument("--max-retries", type=int, default=20, help="Max attempts to generate unique game (default: 20)")
+    gg.add_argument("--quiet", action="store_true", help="Minimal output")
 
     args = ap.parse_args()
     repo = Repo.open(args.db)
@@ -444,6 +779,38 @@ def main():
 
     if args.cmd == "play-game":
         play_interactive_game(repo, args)
+        return
+
+    if args.cmd == "generate-games":
+        repo.migrate()
+        repo.ensure_default_profiles()
+
+        # Validate profiles if specified
+        valid_profiles = ["default", "offense-first", "defense-first", "board-coverage", "materialist"]
+        if args.white_profile and args.white_profile not in valid_profiles:
+            print(f"Error: Invalid white profile '{args.white_profile}'. Valid: {', '.join(valid_profiles)}")
+            repo.close()
+            return
+        if args.black_profile and args.black_profile not in valid_profiles:
+            print(f"Error: Invalid black profile '{args.black_profile}'. Valid: {', '.join(valid_profiles)}")
+            repo.close()
+            return
+
+        # Generate games
+        result = generate_batch_games(
+            repo=repo,
+            count=args.count,
+            white_profile_name=args.white_profile,
+            black_profile_name=args.black_profile,
+            random_profiles=args.random_profiles,
+            depth=args.depth,
+            max_moves=args.max_moves,
+            uniqueness_depth=args.uniqueness_depth,
+            max_retries=args.max_retries,
+            quiet=args.quiet
+        )
+
+        repo.close()
         return
 
 if __name__ == "__main__":
