@@ -16,6 +16,9 @@ from chess_metrics.engine.san import move_to_san
 from chess_metrics.engine.types import WHITE, BLACK, sq_to_alg, alg_to_sq, Move
 from chess_metrics.db.repo import Repo
 from chess_metrics.pgn import export_game_to_pgn
+from chess_metrics.analysis import (
+    detect_blunders, find_critical_positions, calculate_statistics, generate_game_report
+)
 
 START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
@@ -716,6 +719,14 @@ def main():
     ep.add_argument("--no-metrics", action="store_true", help="Exclude metrics comments")
     ep.add_argument("--range", help="Game ID range (e.g., '1-10')")
 
+    ag = sub.add_parser("analyze-game", help="Analyze a game for blunders and critical positions")
+    ag.add_argument("--game-id", type=int, required=True, help="Game ID to analyze")
+    ag.add_argument("--output", "-o", help="Output file (default: stdout)")
+    ag.add_argument("--blunder-threshold", type=float, default=-15, help="Threshold for blunders (default: -15)")
+    ag.add_argument("--mistake-threshold", type=float, default=-10, help="Threshold for mistakes (default: -10)")
+    ag.add_argument("--inaccuracy-threshold", type=float, default=-5, help="Threshold for inaccuracies (default: -5)")
+    ag.add_argument("--verbose", "-v", action="store_true", help="Include detailed analysis")
+
     args = ap.parse_args()
     repo = Repo.open(args.db)
 
@@ -882,6 +893,60 @@ def main():
                 return
         else:
             print(full_output)
+
+        repo.close()
+        return
+
+    if args.cmd == "analyze-game":
+        # Get game data
+        game_data = repo.get_game_for_analysis(args.game_id)
+
+        if not game_data:
+            print(f"Error: Game {args.game_id} not found")
+            repo.close()
+            return
+
+        positions = game_data['positions']
+
+        if not positions:
+            print(f"Error: No positions found for game {args.game_id}")
+            repo.close()
+            return
+
+        # Perform analysis
+        blunders = detect_blunders(
+            positions,
+            blunder_threshold=args.blunder_threshold,
+            mistake_threshold=args.mistake_threshold,
+            inaccuracy_threshold=args.inaccuracy_threshold
+        )
+
+        critical_positions = find_critical_positions(positions)
+
+        stats = calculate_statistics(positions, blunders)
+
+        # Generate report
+        report = generate_game_report(
+            game_data['game'],
+            positions,
+            blunders,
+            critical_positions,
+            stats,
+            verbose=args.verbose
+        )
+
+        # Output report
+        if args.output:
+            try:
+                with open(args.output, 'w', encoding='utf-8') as f:
+                    f.write(report)
+                print(f"Analysis saved to {args.output}")
+            except IOError as e:
+                print(f"Error writing to file: {e}")
+                repo.close()
+                return
+        else:
+            print(report)
 
         repo.close()
         return
