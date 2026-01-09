@@ -11,7 +11,7 @@ from chess_metrics.engine.fen import parse_fen, to_fen
 from chess_metrics.engine.movegen import generate_legal_moves
 from chess_metrics.engine.apply import apply_move, undo_move
 from chess_metrics.engine.metrics import compute_metrics, deltas
-from chess_metrics.engine.search import choose_best_move, Profile
+from chess_metrics.engine.search import choose_best_move, Profile, clear_transposition_table
 from chess_metrics.engine.san import move_to_san
 from chess_metrics.engine.types import WHITE, BLACK, sq_to_alg, alg_to_sq, Move
 from chess_metrics.db.repo import Repo
@@ -451,6 +451,9 @@ def play_silent_game(
     Returns:
         GameResult with game statistics
     """
+    # Clear transposition table for new game
+    clear_transposition_table()
+    
     # Create players
     white_pid = repo.create_player(white_name, "ai")
     black_pid = repo.create_player(black_name, "ai")

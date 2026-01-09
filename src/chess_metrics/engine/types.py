@@ -69,9 +69,6 @@ class Move:
     is_castle: bool = False
     is_promotion: bool = False
     promotion_kind: int = QUEEN
-    ep_victim_sq: int = -1
-    castle_rook_from: int = -1
-    castle_rook_to: int = -1
 
     def uci(self) -> str:
         s = sq_to_alg(self.from_sq) + sq_to_alg(self.to_sq)
