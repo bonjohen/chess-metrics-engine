@@ -31,7 +31,11 @@ def apply_move(state: GameState, m: Move) -> Undo:
 
     # captures
     if m.is_ep:
-        captured_sq = m.ep_victim_sq
+        # En passant: victim pawn is behind the target square
+        # If white captures, victim is one rank below (to_sq - 8)
+        # If black captures, victim is one rank above (to_sq + 8)
+        side = prev_stm
+        captured_sq = m.to_sq - 8 if side == WHITE else m.to_sq + 8
         captured_piece = b[captured_sq]
         b[captured_sq] = 0
     elif m.is_capture:
@@ -49,8 +53,22 @@ def apply_move(state: GameState, m: Move) -> Undo:
 
     # castling rook move
     if m.is_castle:
-        rook_from = m.castle_rook_from
-        rook_to = m.castle_rook_to
+        # Determine rook positions based on king's move
+        # White kingside: e1->g1 (4->6), rook h1->f1 (7->5)
+        # White queenside: e1->c1 (4->2), rook a1->d1 (0->3)
+        # Black kingside: e8->g8 (60->62), rook h8->f8 (63->61)
+        # Black queenside: e8->c8 (60->58), rook a8->d8 (56->59)
+        if m.from_sq == 4 and m.to_sq == 6:  # White kingside
+            rook_from, rook_to = 7, 5
+        elif m.from_sq == 4 and m.to_sq == 2:  # White queenside
+            rook_from, rook_to = 0, 3
+        elif m.from_sq == 60 and m.to_sq == 62:  # Black kingside
+            rook_from, rook_to = 63, 61
+        elif m.from_sq == 60 and m.to_sq == 58:  # Black queenside
+            rook_from, rook_to = 56, 59
+        else:
+            raise ValueError(f"Invalid castling move: {m.from_sq}->{m.to_sq}")
+
         rook_piece = b[rook_from]
         b[rook_to] = rook_piece
         b[rook_from] = 0

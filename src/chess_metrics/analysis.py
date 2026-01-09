@@ -6,6 +6,7 @@ Provides blunder detection, critical position analysis, and game statistics.
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional, Tuple
+from chess_metrics.web.profiling import profile_function, profile_section
 
 
 @dataclass

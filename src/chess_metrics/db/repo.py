@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Tuple
 
 from .schema import SCHEMA_SQL
+from chess_metrics.web.profiling import profile_function, profile_section
 
 UTCNOW = lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -105,6 +106,7 @@ class Repo:
         )
         return list(cur.fetchall())
 
+    @profile_function
     def get_game_for_pgn(self, game_id: int) -> Optional[Dict[str, Any]]:
         """
         Get all game data needed for PGN export.
@@ -113,16 +115,17 @@ class Repo:
             Dictionary with 'game' metadata and 'moves' list, or None if game not found
         """
         # Query game metadata with player info
-        game_row = self.conn.execute(
-            """SELECT g.game_id, g.created_utc, g.result, g.termination, g.start_fen,
-                      wp.name as white_name, wp.type as white_type,
-                      bp.name as black_name, bp.type as black_type
-               FROM games g
-               JOIN players wp ON g.white_player_id = wp.player_id
-               JOIN players bp ON g.black_player_id = bp.player_id
-               WHERE g.game_id = ?""",
-            (game_id,)
-        ).fetchone()
+        with profile_section("db_query_game_metadata"):
+            game_row = self.conn.execute(
+                """SELECT g.game_id, g.created_utc, g.result, g.termination, g.start_fen,
+                          wp.name as white_name, wp.type as white_type,
+                          bp.name as black_name, bp.type as black_type
+                   FROM games g
+                   JOIN players wp ON g.white_player_id = wp.player_id
+                   JOIN players bp ON g.black_player_id = bp.player_id
+                   WHERE g.game_id = ?""",
+                (game_id,)
+            ).fetchone()
 
         if not game_row:
             return None
@@ -131,16 +134,17 @@ class Repo:
         game_data = dict(game_row)
 
         # Query moves with position metrics
-        moves_rows = self.conn.execute(
-            """SELECT m.ply, m.san, m.uci,
-                      p.pv_w, p.mv_w, p.ov_w, p.dv_w,
-                      p.pv_b, p.mv_b, p.ov_b, p.dv_b
-               FROM moves m
-               JOIN positions p ON m.game_id = p.game_id AND m.ply = p.ply
-               WHERE m.game_id = ?
-               ORDER BY m.ply ASC""",
-            (game_id,)
-        ).fetchall()
+        with profile_section("db_query_moves_with_metrics"):
+            moves_rows = self.conn.execute(
+                """SELECT m.ply, m.san, m.uci,
+                          p.pv_w, p.mv_w, p.ov_w, p.dv_w,
+                          p.pv_b, p.mv_b, p.ov_b, p.dv_b
+                   FROM moves m
+                   JOIN positions p ON m.game_id = p.game_id AND m.ply = p.ply
+                   WHERE m.game_id = ?
+                   ORDER BY m.ply ASC""",
+                (game_id,)
+            ).fetchall()
 
         # Convert moves to list of dicts
         moves = []
@@ -177,6 +181,7 @@ class Repo:
         ).fetchall()
         return [row['game_id'] for row in rows]
 
+    @profile_function
     def get_game_for_analysis(self, game_id: int) -> Optional[Dict[str, Any]]:
         """
         Get all game data needed for analysis.
@@ -185,16 +190,17 @@ class Repo:
             Dictionary with 'game' metadata and 'positions' list, or None if game not found
         """
         # Query game metadata with player info
-        game_row = self.conn.execute(
-            """SELECT g.game_id, g.created_utc, g.result, g.termination, g.start_fen,
-                      wp.name as white_name, wp.type as white_type,
-                      bp.name as black_name, bp.type as black_type
-               FROM games g
-               JOIN players wp ON g.white_player_id = wp.player_id
-               JOIN players bp ON g.black_player_id = bp.player_id
-               WHERE g.game_id = ?""",
-            (game_id,)
-        ).fetchone()
+        with profile_section("db_query_game_metadata_2"):
+            game_row = self.conn.execute(
+                """SELECT g.game_id, g.created_utc, g.result, g.termination, g.start_fen,
+                          wp.name as white_name, wp.type as white_type,
+                          bp.name as black_name, bp.type as black_type
+                   FROM games g
+                   JOIN players wp ON g.white_player_id = wp.player_id
+                   JOIN players bp ON g.black_player_id = bp.player_id
+                   WHERE g.game_id = ?""",
+                (game_id,)
+            ).fetchone()
 
         if not game_row:
             return None
@@ -203,17 +209,19 @@ class Repo:
         game_data = dict(game_row)
 
         # Query all positions with metrics
-        positions_rows = self.conn.execute(
-            """SELECT ply, side_to_move, fen, last_move_san,
-                      pv_w, mv_w, ov_w, dv_w,
-                      pv_b, mv_b, ov_b, dv_b
-               FROM positions
-               WHERE game_id = ?
-               ORDER BY ply ASC""",
-            (game_id,)
-        ).fetchall()
+        with profile_section("db_query_all_positions"):
+            positions_rows = self.conn.execute(
+                """SELECT ply, side_to_move, fen, last_move_san,
+                          pv_w, mv_w, ov_w, dv_w,
+                          pv_b, mv_b, ov_b, dv_b
+                   FROM positions
+                   WHERE game_id = ?
+                   ORDER BY ply ASC""",
+                (game_id,)
+            ).fetchall()
 
         # Convert positions to list of dicts
-        positions = [dict(row) for row in positions_rows]
+        with profile_section("convert_positions_to_dicts"):
+            positions = [dict(row) for row in positions_rows]
 
         return {'game': game_data, 'positions': positions}

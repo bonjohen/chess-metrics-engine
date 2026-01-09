@@ -100,7 +100,7 @@ def _pawn_moves(state: GameState, side: int, from_sq: int) -> List[Move]:
             # victim pawn is behind ep square
             victim_sq = ep - 8 if side == WHITE else ep + 8
             if on_board(victim_sq) and b[victim_sq] == opposite(side) * PAWN and b[ep] == 0:
-                moves.append(Move(from_sq, ep, PAWN, captured_kind=PAWN, is_capture=True, is_ep=True, ep_victim_sq=victim_sq))
+                moves.append(Move(from_sq, ep, PAWN, captured_kind=PAWN, is_capture=True, is_ep=True))
 
     return moves
 
@@ -180,13 +180,13 @@ def _castle_moves(state: GameState, side: int) -> List[Move]:
         if state.castling_rights & CR_WK:
             if b[5] == 0 and b[6] == 0 and b[7] == WHITE * ROOK:
                 if (not is_square_attacked(state, 5, BLACK)) and (not is_square_attacked(state, 6, BLACK)):
-                    moves.append(Move(4, 6, KING, is_castle=True, castle_rook_from=7, castle_rook_to=5))
+                    moves.append(Move(4, 6, KING, is_castle=True))
 
         # Queen side: e1->c1, rook a1->d1
         if state.castling_rights & CR_WQ:
             if b[3] == 0 and b[2] == 0 and b[1] == 0 and b[0] == WHITE * ROOK:
                 if (not is_square_attacked(state, 3, BLACK)) and (not is_square_attacked(state, 2, BLACK)):
-                    moves.append(Move(4, 2, KING, is_castle=True, castle_rook_from=0, castle_rook_to=3))
+                    moves.append(Move(4, 2, KING, is_castle=True))
 
     else:
         king_sq = 60  # e8
@@ -199,12 +199,12 @@ def _castle_moves(state: GameState, side: int) -> List[Move]:
         if state.castling_rights & CR_BK:
             if b[61] == 0 and b[62] == 0 and b[63] == BLACK * ROOK:
                 if (not is_square_attacked(state, 61, WHITE)) and (not is_square_attacked(state, 62, WHITE)):
-                    moves.append(Move(60, 62, KING, is_castle=True, castle_rook_from=63, castle_rook_to=61))
+                    moves.append(Move(60, 62, KING, is_castle=True))
 
         # Queen side: e8->c8, rook a8->d8
         if state.castling_rights & CR_BQ:
             if b[59] == 0 and b[58] == 0 and b[57] == 0 and b[56] == BLACK * ROOK:
                 if (not is_square_attacked(state, 59, WHITE)) and (not is_square_attacked(state, 58, WHITE)):
-                    moves.append(Move(60, 58, KING, is_castle=True, castle_rook_from=56, castle_rook_to=59))
+                    moves.append(Move(60, 58, KING, is_castle=True))
 
     return moves
