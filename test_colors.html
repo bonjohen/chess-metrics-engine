@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Color Test</title>
+    <style>
+        .error-label {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .error-blunder {
+            background-color: #dc3545 !important;
+            color: #ffffff !important;
+        }
+        
+        .error-mistake {
+            background-color: #fd7e14 !important;
+            color: #ffffff !important;
+        }
+        
+        .error-inaccuracy {
+            background-color: #ffc107 !important;
+            color: #000000 !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Color Test</h1>
+    
+    <h2>With Classes Only:</h2>
+    <span class="error-label error-blunder">Blunders</span><br>
+    <span class="error-label error-mistake">Mistakes</span><br>
+    <span class="error-label error-inaccuracy">Inaccuracies</span><br>
+    
+    <h2>With Inline Styles:</h2>
+    <span class="error-label error-blunder" style="background-color: #dc3545 !important; color: #ffffff !important;">Blunders</span><br>
+    <span class="error-label error-mistake" style="background-color: #fd7e14 !important; color: #ffffff !important;">Mistakes</span><br>
+    <span class="error-label error-inaccuracy" style="background-color: #ffc107 !important; color: #000000 !important;">Inaccuracies</span><br>
+</body>
+</html>
+

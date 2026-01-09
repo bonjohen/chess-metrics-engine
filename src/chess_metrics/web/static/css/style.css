@@ -1,0 +1,250 @@
+/* Custom styles for Chess Metrics Engine */
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Move list styling */
+.move-list {
+    font-family: 'Courier New', monospace;
+    line-height: 2;
+}
+
+.move-pair {
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.move-number {
+    color: #666;
+    font-weight: bold;
+}
+
+.move {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.move:hover {
+    background-color: #e9ecef;
+}
+
+.move.active {
+    background-color: #0d6efd;
+    color: white;
+}
+
+/* Blunder highlighting in move list */
+.blunder-blunder {
+    background-color: #dc3545;
+    color: white;
+    font-weight: bold;
+    padding: 3px 7px;
+    border-radius: 4px;
+}
+
+.blunder-blunder:hover {
+    background-color: #bb2d3b;
+}
+
+.blunder-mistake {
+    background-color: #fd7e14;
+    color: white;
+    font-weight: bold;
+    padding: 3px 7px;
+    border-radius: 4px;
+}
+
+.blunder-mistake:hover {
+    background-color: #e8590c;
+}
+
+.blunder-inaccuracy {
+    background-color: #ffc107;
+    color: #000;
+    font-weight: bold;
+    padding: 3px 7px;
+    border-radius: 4px;
+}
+
+.blunder-inaccuracy:hover {
+    background-color: #ffca2c;
+}
+
+/* Error labels in analysis summary */
+.error-label {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+span.error-label.error-blunder,
+.error-blunder,
+td span.error-label.error-blunder {
+    background-color: #dc3545 !important;
+    color: #ffffff !important;
+}
+
+span.error-label.error-mistake,
+.error-mistake,
+td span.error-label.error-mistake {
+    background-color: #fd7e14 !important;
+    color: #ffffff !important;
+}
+
+span.error-label.error-inaccuracy,
+.error-inaccuracy,
+td span.error-label.error-inaccuracy {
+    background-color: #ffc107 !important;
+    color: #000000 !important;
+}
+
+/* Error toggles - make error labels clickable */
+.error-label.error-toggle {
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    display: inline-block;
+    margin-right: 8px;
+    opacity: 0.4;
+    border: 2px solid transparent;
+}
+
+.error-label.error-toggle:hover {
+    opacity: 0.7;
+    transform: translateY(-1px);
+}
+
+.error-label.error-toggle.active {
+    opacity: 1;
+    border: 2px solid currentColor;
+    font-weight: bold;
+}
+
+/* Metric labels - color coded by metric type */
+.metric-label {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+}
+
+.metric-pv {
+    background-color: rgb(59, 130, 246);  /* Blue for Material */
+}
+
+.metric-mv {
+    background-color: rgb(34, 197, 94);   /* Green for Mobility */
+}
+
+.metric-ov {
+    background-color: rgb(168, 85, 247);  /* Purple for Offense */
+}
+
+.metric-dv {
+    background-color: rgb(249, 115, 22);  /* Orange for Defense */
+}
+
+/* Metric values */
+.metric-value {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+/* Player text */
+.player-text {
+    font-weight: bold;
+    font-size: 1rem;
+    margin-left: 5px;
+}
+
+/* Metric toggles - make metric labels clickable */
+.metric-label.metric-toggle {
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    display: inline-block;
+    margin-right: 8px;
+    opacity: 0.4;
+    border: 2px solid transparent;
+}
+
+.metric-label.metric-toggle:hover {
+    opacity: 0.7;
+    transform: translateY(-1px);
+}
+
+.metric-label.metric-toggle.active {
+    opacity: 1;
+    border: 2px solid currentColor;
+    font-weight: bold;
+}
+
+/* Card styling */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Table styling */
+.table-hover tbody tr:hover {
+    cursor: pointer;
+}
+
+/* Chessboard container */
+#board {
+    margin: 0 auto;
+    width: 100%;
+    max-width: 500px;
+}
+
+/* Ensure chessboard pieces are visible */
+.chessboard-63f37 {
+    border: 2px solid #404040;
+}
+
+.square-55d63 {
+    position: relative;
+}
+
+/* Light squares */
+.white-1e1d7 {
+    background-color: #f0d9b5;
+}
+
+/* Dark squares */
+.black-3c85d {
+    background-color: #b58863;
+}
+
+/* Chart legend items */
+.chart-legend-item {
+    display: inline-block;
+    width: 20px;
+    height: 14px;
+    border: 1px solid #ccc;
+    margin-right: 3px;
+    vertical-align: middle;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .move-list {
+        font-size: 0.9rem;
+    }
+}
+

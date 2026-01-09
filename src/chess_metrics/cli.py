@@ -307,8 +307,14 @@ def play_interactive_game(repo: Repo, args):
         game_over, result = is_game_over(state)
         if game_over:
             print(f"Game Over! Result: {result}")
-            # Update game result
-            termination = "checkmate" if "#" in result and result != "1/2-1/2" else "draw"
+            # Update game result - determine termination reason
+            if result == "1/2-1/2":
+                # Draw - check if it's stalemate or 50-move rule
+                termination = "stalemate" if state.halfmove_clock < 100 else "draw"
+            else:
+                # Someone won - it's checkmate
+                termination = "checkmate"
+
             repo.conn.execute(
                 "UPDATE games SET result=?, termination=? WHERE game_id=?",
                 (result, termination, game_id)
@@ -472,7 +478,14 @@ def play_silent_game(
         # Check if game is over
         game_over, result = is_game_over(state)
         if game_over:
-            termination = "checkmate" if "#" in result and result != "1/2-1/2" else "stalemate"
+            # Determine termination reason based on result
+            if result == "1/2-1/2":
+                # Draw - check if it's stalemate or 50-move rule
+                termination = "stalemate" if state.halfmove_clock < 100 else "draw"
+            else:
+                # Someone won - it's checkmate
+                termination = "checkmate"
+
             repo.conn.execute(
                 "UPDATE games SET result=?, termination=? WHERE game_id=?",
                 (result, termination, game_id)
@@ -727,6 +740,11 @@ def main():
     ag.add_argument("--inaccuracy-threshold", type=float, default=-5, help="Threshold for inaccuracies (default: -5)")
     ag.add_argument("--verbose", "-v", action="store_true", help="Include detailed analysis")
 
+    sv = sub.add_parser("serve", help="Start web viewer server")
+    sv.add_argument("--port", type=int, default=5000, help="Port to run server on (default: 5000)")
+    sv.add_argument("--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)")
+    sv.add_argument("--debug", action="store_true", help="Run in debug mode")
+
     args = ap.parse_args()
     repo = Repo.open(args.db)
 
@@ -949,6 +967,19 @@ def main():
             print(report)
 
         repo.close()
+        return
+
+    if args.cmd == "serve":
+        from chess_metrics.web.app import create_app
+
+        print(f"Starting Chess Metrics Engine web viewer...")
+        print(f"Database: {args.db}")
+        print(f"Server: http://{args.host}:{args.port}")
+        print(f"Press Ctrl+C to stop")
+
+        app = create_app(args.db)
+        app.run(host=args.host, port=args.port, debug=args.debug)
+
         return
 
 if __name__ == "__main__":
